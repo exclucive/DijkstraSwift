@@ -7,6 +7,8 @@ class Vertex<T: Hashable>: Hashable {
     let index: Int
     var visited: Bool = false
     var edges: [Edge<T>] = []
+    var totalWeight: Double = Double.infinity
+    var pathFromStartpoint:[Vertex<T>] = []
     
     init(value: T, index: Int) {
         self.value = value
@@ -19,6 +21,12 @@ class Vertex<T: Hashable>: Hashable {
     
     static func == (lhs: Vertex<T>, rhs: Vertex<T>) -> Bool {
         return lhs.index == rhs.index
+    }
+}
+
+extension Vertex: CustomStringConvertible {
+    var description: String {
+        return "Vertex: \(value): \(index)"
     }
 }
 
@@ -43,6 +51,14 @@ class Graph<T: Hashable> {
         self.directed = directed
     }
     
+    private func clearCachedValues() {
+        for node in nodes {
+            node.pathFromStartpoint.removeAll()
+            node.totalWeight = Double.infinity
+            node.visited = false
+        }
+    }
+    
     func addNewNode(_ value: T) -> Node {
         let newNode = Node(value: value, index: nodes.count)
         nodes.append(newNode)
@@ -60,6 +76,54 @@ class Graph<T: Hashable> {
             newNeighbor.weight = weight
             to.edges.append(newNeighbor)
         }
+    }
+    
+    func dijkstra(node: Node) {
+        clearCachedValues()
+        
+        var nextNode:Node? = node
+        node.totalWeight = 0
+        node.pathFromStartpoint.append(node)
+        
+        var restNodes:[Node] = nodes
+        
+        while let currentNode = nextNode {
+            currentNode.visited = true
+            
+            guard let index = restNodes.index(of: currentNode) else {
+                break
+            }
+            restNodes.remove(at: index)
+            
+            for edge in currentNode.edges where edge.destination.visited == false {
+                let neighbor = edge.destination
+                let weight = edge.weight! + currentNode.totalWeight
+                if weight < neighbor.totalWeight {
+                    neighbor.totalWeight = weight
+                    neighbor.pathFromStartpoint = currentNode.pathFromStartpoint
+                    neighbor.pathFromStartpoint.append(neighbor)
+                }
+            }
+            
+            if restNodes.isEmpty {
+                break
+            }
+            
+            nextNode  = restNodes.min { v1, v2 in v1.totalWeight < v2.totalWeight }
+        }
+    }
+    
+    func findPath(from: Node, to: Node) -> String {
+        dijkstra(node: from)
+        
+        var resultStr = "\(to.totalWeight): "
+        for node in to.pathFromStartpoint {
+            resultStr += "\(node.value), "
+        }
+        
+        resultStr = String(resultStr.dropLast(2))
+        
+        return resultStr
     }
 }
 
@@ -80,30 +144,6 @@ extension Graph: CustomStringConvertible {
         
         return resultStr
     }
-
-    func dijkstra(node: Node) {
-        var totalWeights = Array(repeating: Double.infinity, count: nodes.count)
-        var pathsVertices = Array(repeating: [], count: nodes.count)
-        totalWeights[node.index] = 0
-        pathsVertices[node.index].append(node)        
-        var currentNode = node
-        
-        while currentNode != nil && currentNode.visited == false {
-            currentNode.visited = true
-            
-            for edge in currentNode.edges {
-                let neighbor = edge.destination
-                let weight = edge.weight! + totalWeights[currentNode.index]
-                if weight < totalWeights[neighbor.index] {
-                    totalWeights[neighbor.index] = weight
-                    pathsVertices[neighbor.index] = pathsVertices[currentNode.index]
-                    pathsVertices[neighbor.index].append(neighbor)
-                }
-            }
-            
-        }
-        
-    }
 }
 
 
@@ -123,4 +163,6 @@ graph.addEdge(from: losAngeles, to: lasVegas, weight: 500)
 
 graph.addEdge(from: sanDiego, to: lasVegas, weight: 650)
 
-print(graph)
+let result = graph.findPath(from: sanFrancisco, to: sanDiego)
+print(result)
+
